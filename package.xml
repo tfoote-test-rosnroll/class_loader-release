@@ -15,7 +15,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>libconsole-bridge-dev</build_depend>
+  <build_depend>console_bridge</build_depend>
   <build_depend>libpoco-dev</build_depend>
   <build_depend>poco_vendor</build_depend>
 
