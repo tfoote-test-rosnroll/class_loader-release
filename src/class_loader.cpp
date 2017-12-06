@@ -41,6 +41,11 @@ bool ClassLoader::hasUnmanagedInstanceBeenCreated()
   return ClassLoader::has_unmananged_instance_been_created_;
 }
 
+void ClassLoader::setUnmanagedInstanceBeenCreated(bool state)
+{
+  ClassLoader::has_unmananged_instance_been_created_ = state;
+}
+
 std::string systemLibraryPrefix()
 {
 #if !defined(WIN32)
@@ -51,12 +56,17 @@ std::string systemLibraryPrefix()
 
 std::string systemLibrarySuffix()
 {
-#if !defined(WIN32)
-  return Poco::SharedLibrary::suffix();
-#else
-  // Return just .dll , as Poco::SharedLibrary::suffix() will return d.dll in debug mode.
-  // This isn't common for our usecase (instead debug libraries are placed in a `Debug` folder).
+// Poco should be compiled with `#define POCO_NO_SHARED_LIBRARY_DEBUG_SUFFIX`
+// to automatically remove the trailing `d` from the shared library suffix
+//   return Poco::SharedLibrary::suffix();
+#ifdef __linux__
+  return ".so";
+#elif __APPLE__
+  return ".dylib";
+#elif _WIN32
   return ".dll";
+#else
+  return Poco::SharedLibrary::suffix();
 #endif
 }
 
@@ -79,7 +89,7 @@ ClassLoader::ClassLoader(const std::string & library_path, bool ondemand_load_un
 
 ClassLoader::~ClassLoader()
 {
-  CONSOLE_BRIDGE_logDebug("class_loader.ClassLoader: Destroying class loader, unloading associated library...\n");
+  CONSOLE_BRIDGE_logDebug("%s", "class_loader.ClassLoader: Destroying class loader, unloading associated library...\n");
   unloadLibrary(); //TODO: while(unloadLibrary() > 0){} ??
 }
 
@@ -132,7 +142,7 @@ int ClassLoader::unloadLibraryInternal(bool lock_plugin_ref_count)
 
   try {
     if (plugin_ref_count_ > 0) {
-      CONSOLE_BRIDGE_logWarn("class_loader.ClassLoader: SEVERE WARNING!!! Attempting to unload library while objects created by this loader exist in the heap! You should delete your objects before attempting to unload the library or destroying the ClassLoader. The library will NOT be unloaded.");
+      CONSOLE_BRIDGE_logWarn("%s", "class_loader.ClassLoader: SEVERE WARNING!!! Attempting to unload library while objects created by this loader exist in the heap! You should delete your objects before attempting to unload the library or destroying the ClassLoader. The library will NOT be unloaded.");
     } else {
       load_ref_count_ = load_ref_count_ - 1;
       if (load_ref_count_ == 0) {

@@ -3,6 +3,7 @@
 #include <thread>
 
 #include <class_loader/class_loader.h>
+#include <class_loader/multi_library_class_loader.h>
 
 #include <gtest/gtest.h>
 
@@ -74,7 +75,7 @@ TEST(ClassLoaderTest, nonExistentPlugin)
     }
 
     obj->saySomething();
-  } catch (const class_loader::CreateClassException & e) {
+  } catch (const class_loader::CreateClassException &) {
     SUCCEED();
     return;
   } catch (...) {
@@ -88,7 +89,7 @@ TEST(ClassLoaderTest, nonExistentLibrary)
 {
   try {
     class_loader::ClassLoader loader1("libDoesNotExist.so", false);
-  } catch (const class_loader::LibraryLoadException & e) {
+  } catch (const class_loader::LibraryLoadException &) {
     SUCCEED();
     return;
   } catch (...) {
@@ -115,7 +116,7 @@ TEST(ClassLoaderTest, invalidBase)
     } else {
       FAIL() << "Class not available for correct base class.";
     }
-  } catch (const class_loader::LibraryLoadException & e) {
+  } catch (const class_loader::LibraryLoadException &) {
     FAIL() << "Unexpected exception";
   } catch (...) {
     FAIL() << "Unexpected and unknown exception caught.\n";
@@ -161,7 +162,7 @@ TEST(ClassLoaderTest, threadSafety)
     loader1.unloadLibrary();
     ASSERT_FALSE(loader1.isLibraryLoaded());
 
-  } catch (const class_loader::ClassLoaderException & ex) {
+  } catch (const class_loader::ClassLoaderException &) {
     FAIL() << "Unexpected ClassLoaderException.";
   } catch (...) {
     FAIL() << "Unknown exception.";
@@ -194,7 +195,7 @@ TEST(ClassLoaderTest, loadRefCountingNonLazy)
     ASSERT_TRUE(loader1.isLibraryLoaded());
 
     return;
-  } catch (const class_loader::ClassLoaderException & e) {
+  } catch (const class_loader::ClassLoaderException &) {
     FAIL() << "Unexpected exception.\n";
   } catch (...) {
     FAIL() << "Unknown exception caught.\n";
@@ -235,11 +236,64 @@ TEST(ClassLoaderTest, loadRefCountingLazy)
     ASSERT_TRUE(loader1.isLibraryLoaded());
 
     return;
-  } catch (const class_loader::ClassLoaderException & e) {
+  } catch (const class_loader::ClassLoaderException &) {
     FAIL() << "Unexpected exception.\n";
   } catch (...) {
     FAIL() << "Unknown exception caught.\n";
   }
 
   FAIL() << "Did not throw exception as expected.\n";
+}
+
+void testMultiClassLoader(bool lazy)
+{
+  try {
+    class_loader::MultiLibraryClassLoader loader(lazy);
+    loader.loadLibrary(LIBRARY_1);
+    loader.loadLibrary(LIBRARY_2);
+    for (int i = 0; i < 2; ++i) {
+      loader.createInstance<Base>("Cat")->saySomething();
+      loader.createInstance<Base>("Dog")->saySomething();
+      loader.createInstance<Base>("Robot")->saySomething();
+    }
+  } catch (class_loader::ClassLoaderException & e) {
+    FAIL() << "ClassLoaderException: " << e.what() << "\n";
+  }
+
+  SUCCEED();
+}
+
+TEST(MultiClassLoaderTest, lazyLoad)
+{
+  testMultiClassLoader(true);
+}
+TEST(MultiClassLoaderTest, lazyLoadSecondTime)
+{
+  testMultiClassLoader(true);
+}
+TEST(MultiClassLoaderTest, nonLazyLoad)
+{
+  testMultiClassLoader(false);
+}
+TEST(MultiClassLoaderTest, noWarningOnLazyLoad)
+{
+  try {
+    std::shared_ptr<Base> cat, dog, rob;
+    {
+      class_loader::MultiLibraryClassLoader loader(true);
+      loader.loadLibrary(LIBRARY_1);
+      loader.loadLibrary(LIBRARY_2);
+
+      cat = loader.createInstance<Base>("Cat");
+      dog = loader.createInstance<Base>("Dog");
+      rob = loader.createInstance<Base>("Robot");
+    }
+    cat->saySomething();
+    dog->saySomething();
+    rob->saySomething();
+  } catch (class_loader::ClassLoaderException & e) {
+    FAIL() << "ClassLoaderException: " << e.what() << "\n";
+  }
+
+  SUCCEED();
 }
