@@ -35,9 +35,15 @@ set(${PROJECT_NAME}_SRCS
   src/multi_library_class_loader.cpp
 )
 add_library(${PROJECT_NAME} SHARED ${${PROJECT_NAME}_SRCS})
-target_include_directories(${PROJECT_NAME}
-  PUBLIC include ${console_bridge_INCLUDE_DIRS} ${Poco_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} ${console_bridge_LIBRARIES} ${Poco_LIBRARIES})
+if(ament_cmake_FOUND)
+  target_include_directories(${PROJECT_NAME}
+    PUBLIC include)
+  ament_target_dependencies(${PROJECT_NAME} "console_bridge" "Poco")
+else()
+  target_include_directories(${PROJECT_NAME}
+    PUBLIC include ${console_bridge_INCLUDE_DIRS} ${Poco_INCLUDE_DIRS})
+  target_link_libraries(${PROJECT_NAME} ${console_bridge_LIBRARIES} ${Poco_LIBRARIES})
+endif()
 if(WIN32)
   # Causes the visibility macros to use dllexport rather than dllimport
   # which is appropriate when building the dll but not consuming it.
@@ -48,8 +54,17 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto QUIET)
   if(ament_lint_auto_FOUND)
     # TODO(mikaelarguedas) add copyright test once the linter accepts /** block comments
-    set(ament_cmake_copyright_FOUND TRUE)
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE
+      ament_cmake_copyright
+    )
     ament_lint_auto_find_test_dependencies()
+
+    # Files in test/fviz_case_study do have compatible copyrights
+    find_package(ament_cmake_copyright)
+    ament_copyright(
+      TESTNAME copyright_check_tests_only
+      "test/fviz_case_study"
+    )
   endif()
   add_subdirectory(test)
 endif()
